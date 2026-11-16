@@ -45,7 +45,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\run2.ps1
 
 - `.env.example` 하나를 복사해 `.env`를 만듭니다. 두 모델의 경로·모델 별칭·Python 경로·모델 포트·메모리 설정·준비 대기 시간은 같은 파일에서 각각 지정합니다.
 - `run2.ps1`은 Qwen을 먼저 실행하지 않고 Gemma만 준비한 뒤, 같은 API 컨테이너에 `GEMMA_MODEL_NAME`을 적용합니다. `run.ps1`은 `QWEN_MODEL_NAME`을 적용합니다.
-- 다른 모델이 8010 포트를 사용 중이면 자동 종료하지 않고 중단합니다. 모델을 바꿀 때는 기존 모델을 직접 종료한 뒤 다른 실행기를 사용합니다.
+- 다른 모델이 8010 포트를 사용 중이면 자동 종료하지 않고 중단합니다. 모델을 바꿀 때는 Windows PowerShell에서 `wsl --terminate Ubuntu-24.04`로 기존 모델을 종료한 뒤 원하는 실행기를 사용합니다. 자세한 순서는 아래 모델 전환 절을 참고합니다.
 - 모델별 자동 전환과 프론트 토글은 아직 추가하지 않았습니다.
 - Gemma 장치 설정은 `scripts/configure_runtime2.py`에서 계산합니다. 언어 모델만 사용하므로 Gemma의 비전·오디오 가중치는 메모리 계산에서 제외합니다.
 - Gemma 로그는 `runtime/vllm2.log`, `runtime/model2-launcher.log`, `runtime/model2-launcher-error.log`이며 모델 PID는 `runtime/vllm2.pid`입니다.
@@ -540,6 +540,36 @@ Get-Content -LiteralPath .\runtime\model-launcher-error.log -Encoding UTF8 -Tail
 
 위 로그 보기 명령의 `Ctrl+C`는 로그 구독을 끝냅니다. 모델 로딩 진행률·초기화 상태는 `vllm.log`, API의 요청 전송·응답 수신 기록은 Docker API 로그에서 확인합니다.
 
+## 모델 전환
+
+실행기는 다른 모델을 자동 종료하거나 교체하지 않습니다. Gemma가 켜진 상태에서 `run.ps1`을 실행하거나, Qwen이 켜진 상태에서 `run2.ps1`을 실행하면 다른 모델이 포트를 사용 중이라는 오류로 중단됩니다.
+
+모델을 바꿀 때는 Windows PowerShell에서 먼저 현재 모델을 종료합니다.
+
+```powershell
+wsl --terminate Ubuntu-24.04
+```
+
+이 명령은 Ubuntu-24.04와 그 안에서 실행 중인 모델 및 다른 프로그램을 종료합니다. Docker 프로젝트 API 컨테이너는 유지되므로 모델 전환을 위해 `docker compose down`을 실행할 필요는 없습니다.
+
+그다음 프로젝트 폴더에서 아래 두 실행 명령 중 원하는 모델 하나만 실행합니다.
+
+Qwen 실행:
+
+```powershell
+cd C:\workspace\model-orchestrator
+powershell -NoProfile -ExecutionPolicy Bypass -File .\run.ps1
+```
+
+Gemma 실행:
+
+```powershell
+cd C:\workspace\model-orchestrator
+powershell -NoProfile -ExecutionPolicy Bypass -File .\run2.ps1
+```
+
+선택한 실행기가 Ubuntu와 해당 모델을 시작하고 준비 완료를 확인한 뒤, 같은 Docker API 컨테이너에 선택한 모델 설정을 반영합니다. `.env`를 바꿀 필요 없이 `run.ps1`은 `QWEN_*`, `run2.ps1`은 `GEMMA_*` 설정을 읽습니다. API 포트를 그대로 사용하면 접속 주소와 해당 포트에 연결된 Cloudflare 터널 주소도 그대로 사용할 수 있습니다. 모델을 다시 로딩하는 동안에는 질문을 처리할 수 없습니다.
+
 ## 종료
 
 - 프로젝트 API는 백그라운드로 실행됩니다. 종료할 때는 Windows PowerShell에서 다음 명령을 입력합니다.
@@ -550,16 +580,10 @@ docker compose down
 ```
 
 - 모델 서버는 별도 프로세스로 계속 실행되어 다음 실행에서 재사용합니다.
-- 모델까지 종료하려면 Ubuntu에서 아래 명령으로 기록된 PID의 실제 실행 내용을 먼저 확인합니다.
+- 모델까지 종료하려면 Windows PowerShell에서 다음 명령을 실행합니다. Qwen과 Gemma 모두 같은 명령을 사용합니다.
 
-```bash
-ps -p "$(cat /mnt/c/workspace/model-orchestrator/runtime/vllm.pid)" -o pid,args
-```
-
-출력된 프로세스가 이 프로젝트에서 실행한 `vllm.entrypoints.openai.api_server`인지 확인한 뒤 해당 PID를 종료합니다.
-
-```bash
-kill -TERM "$(cat /mnt/c/workspace/model-orchestrator/runtime/vllm.pid)"
+```powershell
+wsl --terminate Ubuntu-24.04
 ```
 
 - `wsl --shutdown`은 모든 WSL 프로그램을 종료하므로 RAM 설정 변경처럼 필요한 경우 사용합니다.
