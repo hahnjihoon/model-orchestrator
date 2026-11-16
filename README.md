@@ -5,7 +5,7 @@
 Docker Desktop을 실행한 뒤 Windows PowerShell에서 입력합니다.
 
 ```powershell
-cd C:\workspace\qwen-swagger
+cd C:\workspace\model-orchestrator
 powershell -NoProfile -ExecutionPolicy Bypass -File .\run.ps1
 ```
 
@@ -17,7 +17,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\run.ps1
 API 실시간 로그는 별도 PowerShell에서 확인합니다.
 
 ```powershell
-cd C:\workspace\qwen-swagger
+cd C:\workspace\model-orchestrator
 docker compose logs -f --tail=100 api
 ```
 
@@ -57,13 +57,13 @@ docker compose logs -f --tail=100 api
 모델이 꺼진 상태에서 vLLM만 실행하려면 Windows PowerShell에서 입력합니다. 이 명령은 모델 프로세스가 종료될 때까지 실행 상태를 유지합니다.
 
 ```powershell
-wsl -d Ubuntu-24.04 -- bash /mnt/c/workspace/qwen-swagger/run.sh
+wsl -d Ubuntu-24.04 -- bash /mnt/c/workspace/model-orchestrator/run.sh
 ```
 
 vLLM이 이미 준비된 상태에서 Docker API만 빌드·실행하려면 별도 PowerShell에서 입력합니다.
 
 ```powershell
-cd C:\workspace\qwen-swagger
+cd C:\workspace\model-orchestrator
 docker compose up -d --build api
 ```
 
@@ -72,7 +72,7 @@ docker compose up -d --build api
 ## 프로젝트 구조
 
 ```text
-qwen-swagger/
+model-orchestrator/
 ├─ runtime/
 ├─ scripts/
 │  └─ configure_runtime.py
@@ -237,8 +237,8 @@ docker version
 
 ```powershell
 New-Item -ItemType Directory -Path C:\workspace -Force | Out-Null
-git clone -c core.autocrlf=false "<저장소_URL>" C:\workspace\qwen-swagger
-cd C:\workspace\qwen-swagger
+git clone -c core.autocrlf=false "<저장소_URL>" C:\workspace\model-orchestrator
+cd C:\workspace\model-orchestrator
 Copy-Item -LiteralPath .env.example -Destination .env
 New-Item -ItemType Directory -Path .\runtime -Force | Out-Null
 ```
@@ -246,7 +246,7 @@ New-Item -ItemType Directory -Path .\runtime -Force | Out-Null
 프로젝트 파일은 Windows의 C 드라이브에 저장됩니다.
 프로젝트의 `requirements.txt`는 Docker 이미지 안에서 설치합니다.
 `core.autocrlf=false`는 저장소의 셸 파일이 LF 줄바꿈을 유지하도록 지정한 것입니다.
-VS Code를 사용한다면 `C:\workspace\qwen-swagger` 폴더를 열고 내장 PowerShell 터미널에서 다음 단계를 진행해도 됩니다.
+VS Code를 사용한다면 `C:\workspace\model-orchestrator` 폴더를 열고 내장 PowerShell 터미널에서 다음 단계를 진행해도 됩니다.
 
 ### 8. 자동 실행 준비 — 별도 CLI 입력 없음
 
@@ -259,7 +259,7 @@ WSL·vLLM·모델 다운로드와 Docker Desktop 설치까지 완료되면 9번�
 Docker Desktop이 실행 중인 상태에서 입력합니다.
 
 ```powershell
-cd C:\workspace\qwen-swagger
+cd C:\workspace\model-orchestrator
 powershell -NoProfile -ExecutionPolicy Bypass -File .\run.ps1
 ```
 
@@ -517,7 +517,7 @@ Get-Content -LiteralPath .\runtime\model-launcher-error.log -Encoding UTF8 -Tail
 - 프로젝트 API는 백그라운드로 실행됩니다. 종료할 때는 Windows PowerShell에서 다음 명령을 입력합니다.
 
 ```powershell
-cd C:\workspace\qwen-swagger
+cd C:\workspace\model-orchestrator
 docker compose down
 ```
 
@@ -525,13 +525,13 @@ docker compose down
 - 모델까지 종료하려면 Ubuntu에서 아래 명령으로 기록된 PID의 실제 실행 내용을 먼저 확인합니다.
 
 ```bash
-ps -p "$(cat /mnt/c/workspace/qwen-swagger/runtime/vllm.pid)" -o pid,args
+ps -p "$(cat /mnt/c/workspace/model-orchestrator/runtime/vllm.pid)" -o pid,args
 ```
 
 출력된 프로세스가 이 프로젝트에서 실행한 `vllm.entrypoints.openai.api_server`인지 확인한 뒤 해당 PID를 종료합니다.
 
 ```bash
-kill -TERM "$(cat /mnt/c/workspace/qwen-swagger/runtime/vllm.pid)"
+kill -TERM "$(cat /mnt/c/workspace/model-orchestrator/runtime/vllm.pid)"
 ```
 
 - `wsl --shutdown`은 모든 WSL 프로그램을 종료하므로 RAM 설정 변경처럼 필요한 경우 사용합니다.
@@ -541,7 +541,7 @@ kill -TERM "$(cat /mnt/c/workspace/qwen-swagger/runtime/vllm.pid)"
 프로젝트 API를 종료한 뒤 Windows PowerShell에서 실행합니다.
 
 ```powershell
-cd C:\workspace\qwen-swagger
+cd C:\workspace\model-orchestrator
 git pull --ff-only
 powershell -NoProfile -ExecutionPolicy Bypass -File .\run.ps1
 ```
