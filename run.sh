@@ -3,7 +3,7 @@ set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 if [[ -f .env ]]; then
     set -a
-    source .env
+    source <(sed 's/\r$//' .env)
     set +a
 fi
 export PYTHONUTF8=1
@@ -11,8 +11,15 @@ export PYTHONUNBUFFERED=1
 export HF_HUB_OFFLINE=1
 export VLLM_NO_USAGE_STATS=1
 export VLLM_USE_FLASHINFER_SAMPLER=0
-export MODEL_PATH="${MODEL_PATH:-$HOME/aiq-llm/models/qwen3.8-27b-fp8}"
-VLLM_PYTHON="${VLLM_PYTHON:-$HOME/aiq-llm/.venv/bin/python}"
+export MODEL_PATH="${QWEN_MODEL_PATH:-$HOME/aiq-llm/models/qwen3.8-27b-fp8}"
+export MODEL_NAME="${QWEN_MODEL_NAME:-qwen3.8-27b-fp8}"
+export VLLM_PORT="${QWEN_VLLM_PORT:-8010}"
+export DEVICE_MODE="${QWEN_DEVICE_MODE:-auto}"
+export CPU_OFFLOAD_GB="${QWEN_CPU_OFFLOAD_GB:-auto}"
+export GPU_RESERVE_GB="${QWEN_GPU_RESERVE_GB:-1.0}"
+export MAX_MODEL_LEN="${QWEN_MAX_MODEL_LEN:-2048}"
+export GPU_MEMORY_UTILIZATION="${QWEN_GPU_MEMORY_UTILIZATION:-0.90}"
+VLLM_PYTHON="${QWEN_VLLM_PYTHON:-$HOME/aiq-llm/.venv/bin/python}"
 export -n VLLM_PYTHON
 mkdir -p runtime
 "$VLLM_PYTHON" -c 'import vllm'

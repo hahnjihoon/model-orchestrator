@@ -12,8 +12,16 @@ if (Test-Path -LiteralPath '.env') {
         $settingLine = $settingLine.Trim()
         if (-not $settingLine -or $settingLine.StartsWith('#')) { continue }
         $settingPair = $settingLine -split '=', 2
-        if ($settingPair.Count -eq 2 -and $startupSettings.ContainsKey($settingPair[0].Trim())) {
-            $startupSettings[$settingPair[0].Trim()] = $settingPair[1].Trim().Trim('"').Trim("'")
+        if ($settingPair.Count -eq 2) {
+            $settingName = $settingPair[0].Trim()
+            if ($settingName.StartsWith('QWEN_')) {
+                $settingName = $settingName.Substring(5)
+            } elseif ($settingName -ne 'API_PORT') {
+                continue
+            }
+            if ($startupSettings.ContainsKey($settingName)) {
+                $startupSettings[$settingName] = $settingPair[1].Trim().Trim('"').Trim("'")
+            }
         }
     }
 }
@@ -127,7 +135,17 @@ try {
 }
 
 Write-Output ("Model ready: " + $modelUrl)
-& docker compose up -d --build
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+$previousModelName = [Environment]::GetEnvironmentVariable('MODEL_NAME', 'Process')
+$previousModelPort = [Environment]::GetEnvironmentVariable('VLLM_PORT', 'Process')
+try {
+    $env:MODEL_NAME = $startupSettings.MODEL_NAME
+    $env:VLLM_PORT = [string]$modelPort
+    & docker compose up -d --build
+    $apiStartupExitCode = $LASTEXITCODE
+} finally {
+    [Environment]::SetEnvironmentVariable('MODEL_NAME', $previousModelName, 'Process')
+    [Environment]::SetEnvironmentVariable('VLLM_PORT', $previousModelPort, 'Process')
+}
+if ($apiStartupExitCode -ne 0) { exit $apiStartupExitCode }
 Write-Output ("Swagger: http://localhost:${apiPort}/docs")
 exit 0

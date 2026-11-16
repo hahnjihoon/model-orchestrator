@@ -29,8 +29,8 @@ class UTF8JSONResponse(JSONResponse):
 
 
 app = FastAPI(
-    title="Qwen 로컬 추론 API",
-    description="WSL에 설치한 Qwen 모델에 질문을 전송합니다. 모델 준비 상태는 GET /health에서 확인합니다.",
+    title="모델 통합 추론 API",
+    description="현재 실행 중인 모델을 통해 질문 응답과 질문·답변 평가를 제공합니다. 모델명과 준비 상태는 GET /health에서 확인합니다.",
     version="1.0.0",
     lifespan=lifespan,
     docs_url=None,

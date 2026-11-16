@@ -23,6 +23,34 @@ docker compose logs -f --tail=100 api
 
 `run.ps1`은 모델 준비를 확인한 뒤 `docker compose up -d --build`를 실행합니다. 코드 변경 후에도 같은 실행 명령을 사용합니다.
 
+## Gemma 전용 실행
+
+Qwen은 `run.ps1`·`run.sh`, Gemma는 `run2.ps1`·`run2.sh`를 사용합니다. 설정 파일은 `.env` 하나이며, Qwen은 `QWEN_*`, Gemma는 `GEMMA_*` 항목을 읽습니다. `API_PORT`와 `CORS_ALLOW_ORIGINS`는 공통 설정입니다.
+두 실행 방식은 같은 Docker API와 8011 포트를 사용합니다. `/chat`, `/evaluate`, `/health`와 요청 형식은 같으며, 실행한 설정의 `MODEL_NAME`으로 모델을 호출합니다. 모델별 컨트롤러 폴더는 추가하지 않습니다.
+
+Gemma의 기본 모델은 Google 공식 4비트 QAT 체크포인트인 [`google/gemma-4-31B-it-qat-w4a16-ct`](https://huggingface.co/google/gemma-4-31B-it-qat-w4a16-ct)입니다. 16GB VRAM에서 원본 BF16 대신 이 양자화 모델과 CPU 오프로딩을 사용하도록 설정했습니다. 실제 사용 가능 메모리와 vLLM 동작에 따라 실행 여부가 달라집니다.
+
+모델 파일이 없다면 Ubuntu에서 먼저 다운로드합니다. 기존 Qwen 모델 파일은 유지합니다.
+
+```bash
+~/aiq-llm/.venv/bin/hf download google/gemma-4-31B-it-qat-w4a16-ct --local-dir ~/aiq-llm/models/gemma-4-31b-it-qat-w4a16-ct
+```
+
+모델 다운로드 후 Windows PowerShell에서 Gemma 전용 실행기를 사용합니다.
+
+```powershell
+cd C:\workspace\model-orchestrator
+powershell -NoProfile -ExecutionPolicy Bypass -File .\run2.ps1
+```
+
+- `.env.example` 하나를 복사해 `.env`를 만듭니다. 두 모델의 경로·모델 별칭·Python 경로·모델 포트·메모리 설정·준비 대기 시간은 같은 파일에서 각각 지정합니다.
+- `run2.ps1`은 Qwen을 먼저 실행하지 않고 Gemma만 준비한 뒤, 같은 API 컨테이너에 `GEMMA_MODEL_NAME`을 적용합니다. `run.ps1`은 `QWEN_MODEL_NAME`을 적용합니다.
+- 다른 모델이 8010 포트를 사용 중이면 자동 종료하지 않고 중단합니다. 모델을 바꿀 때는 기존 모델을 직접 종료한 뒤 다른 실행기를 사용합니다.
+- 모델별 자동 전환과 프론트 토글은 아직 추가하지 않았습니다.
+- Gemma 장치 설정은 `scripts/configure_runtime2.py`에서 계산합니다. 언어 모델만 사용하므로 Gemma의 비전·오디오 가중치는 메모리 계산에서 제외합니다.
+- Gemma 로그는 `runtime/vllm2.log`, `runtime/model2-launcher.log`, `runtime/model2-launcher-error.log`이며 모델 PID는 `runtime/vllm2.pid`입니다.
+- 준비 완료 후 접속 주소는 http://localhost:8011/docs 입니다.
+
 ## 실행 구조
 
 ```text
@@ -270,12 +298,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\run.ps1
 - `run.sh`가 GPU 여유 메모리와 CPU 오프로딩 용량을 계산하고 vLLM 내장 FastAPI 서버를 8010으로 실행합니다.
 - 모델의 `/v1/models` 응답에서 설정된 모델이 준비됐는지 확인한 뒤 Docker API를 실행합니다.
 - `docker compose up -d --build`로 프로젝트 이미지를 빌드하고 백그라운드에서 실행합니다. 변경되지 않은 빌드 단계는 캐시를 사용합니다.
-- 컨테이너는 `http://host.docker.internal:8010/v1`로 모델 서버를 호출합니다. 포트는 `.env`의 `VLLM_PORT`를 따릅니다.
+- 컨테이너는 `http://host.docker.internal:8010/v1`로 모델 서버를 호출합니다. 포트는 `.env`에서 선택한 모델의 `QWEN_VLLM_PORT` 또는 `GEMMA_VLLM_PORT`를 따릅니다.
 - 프로젝트 API의 8011 포트는 Windows의 모든 인터페이스에 공개됩니다.
 - 프로젝트 API는 Ubuntu Python 가상환경에서 실행하지 않습니다.
 
 이후 PC를 켤 때는 Docker Desktop을 실행하고 9번 명령만 입력합니다.
-모델 준비 대기 시간은 `.env`의 `MODEL_START_TIMEOUT_SECONDS`로 지정하며 기본 900초입니다.
+모델 준비 대기 시간은 `.env`의 `QWEN_MODEL_START_TIMEOUT_SECONDS` 또는 `GEMMA_MODEL_START_TIMEOUT_SECONDS`로 지정하며 기본 900초입니다.
 모델 로그는 `runtime/vllm.log`, 실행기 로그는 `runtime/model-launcher.log`와 `runtime/model-launcher-error.log`입니다.
 기존 모델의 메모리·문맥 설정을 바꾸려면 해당 모델을 종료하고 실행기를 다시 실행합니다.
 
@@ -551,8 +579,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\run.ps1
 
 ## 설정 파일
 
-- `.env`: 모델 별칭, 포트, CORS, 메모리 설정, 모델 준비 대기 시간.
-- `.env.example`: 새 PC에서 `.env`를 만들 때 사용하는 예시.
+- `.env`: 공통 API 설정과 `QWEN_*`·`GEMMA_*` 모델별 설정을 함께 보관하는 단일 파일.
+- `.env.example`: 두 모델의 전체 설정을 포함하며, 새 PC에서 `.env`를 만들 때 사용하는 단일 예시.
 - `Dockerfile`, `compose.yaml`: 프로젝트 API 컨테이너 설정.
 - `run.ps1`: WSL 모델 서버 시작·준비 확인 후 Docker 프로젝트 API 실행.
 - `run.sh`: 모델 전용 실행기. vLLM을 WSL에서 실행하며 프로젝트 API는 실행하지 않음.
@@ -563,16 +591,20 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\run.ps1
 
 | 설정 | 기본값 | 역할 |
 | --- | --- | --- |
-| `MODEL_NAME` | `qwen3.8-27b-fp8` | API와 모델 서버가 사용하는 모델 별칭 |
+| `QWEN_MODEL_PATH` | `/home/ais_j/aiq-llm/models/qwen3.8-27b-fp8` | Qwen 모델 파일 경로 |
+| `GEMMA_MODEL_PATH` | `/home/ais_j/aiq-llm/models/gemma-4-31b-it-qat-w4a16-ct` | Gemma 모델 파일 경로 |
+| `QWEN_MODEL_NAME` | `qwen3.8-27b-fp8` | Qwen 모델 별칭 |
+| `GEMMA_MODEL_NAME` | `gemma-4-31b-it-qat-w4a16-ct` | Gemma 모델 별칭 |
+| `QWEN_VLLM_PYTHON` / `GEMMA_VLLM_PYTHON` | `/home/ais_j/aiq-llm/.venv/bin/python` | 각 모델을 실행할 Python 경로 |
 | `API_PORT` | `8011` | Windows에 공개할 프로젝트 API 포트 |
-| `VLLM_PORT` | `8010` | WSL 모델 서버 포트 |
+| `QWEN_VLLM_PORT` / `GEMMA_VLLM_PORT` | `8010` | 각 WSL 모델 서버 포트 |
 | `CORS_ALLOW_ORIGINS` | `*` | 허용할 프론트 출처. 여러 개는 쉼표로 구분 |
-| `DEVICE_MODE` | `auto` | `auto`, `gpu`, `hybrid` 중 장치 구성 선택 |
-| `CPU_OFFLOAD_GB` | `auto` | CPU로 옮길 모델 메모리 용량 |
-| `GPU_RESERVE_GB` | `1.0` | 모델 외 GPU 메모리 여유분 |
-| `GPU_MEMORY_UTILIZATION` | `0.90` | GPU 메모리 사용 비율 |
-| `MAX_MODEL_LEN` | `2048` | 입력과 출력을 합친 최대 문맥 토큰 수 |
-| `MODEL_START_TIMEOUT_SECONDS` | `900` | 모델 준비를 기다릴 최대 시간, 초 단위 |
+| `QWEN_DEVICE_MODE` / `GEMMA_DEVICE_MODE` | `auto` | `auto`, `gpu`, `hybrid` 중 장치 구성 선택 |
+| `QWEN_CPU_OFFLOAD_GB` / `GEMMA_CPU_OFFLOAD_GB` | `auto` | CPU로 옮길 모델 메모리 용량 |
+| `QWEN_GPU_RESERVE_GB` / `GEMMA_GPU_RESERVE_GB` | `1.0` | 모델 외 GPU 메모리 여유분 |
+| `QWEN_GPU_MEMORY_UTILIZATION` / `GEMMA_GPU_MEMORY_UTILIZATION` | `0.90` | GPU 메모리 사용 비율 |
+| `QWEN_MAX_MODEL_LEN` / `GEMMA_MAX_MODEL_LEN` | `2048` | 입력과 출력을 합친 최대 문맥 토큰 수 |
+| `QWEN_MODEL_START_TIMEOUT_SECONDS` / `GEMMA_MODEL_START_TIMEOUT_SECONDS` | `900` | 모델 준비를 기다릴 최대 시간, 초 단위 |
 
 ## `runtime` 파일
 
