@@ -17,7 +17,7 @@ MODEL_NAME = os.getenv("MODEL_NAME", "qwen3.8-27b-fp8")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with httpx.AsyncClient(timeout=httpx.Timeout(600.0, connect=5.0), trust_env=False) as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(None, connect=5.0), trust_env=False) as client:
         app.state.client = client
         runtime_path = Path(__file__).parent / "runtime" / "device.json"
         app.state.runtime = json.loads(runtime_path.read_text(encoding="utf-8")) if runtime_path.exists() else None

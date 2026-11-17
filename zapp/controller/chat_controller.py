@@ -19,7 +19,7 @@ class ChatRequest(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
-                "prompt": "안녕하세요. 자기소개를 한 문장으로 해주세요.",
+                "prompt": "너는 누구야?",
                 "system_prompt": "한국어로 간결하게 답변하세요.",
                 "history": [],
                 "max_tokens": 20,
@@ -29,7 +29,7 @@ class ChatRequest(BaseModel):
         }
     }
 
-    prompt: str = Field(min_length=1, max_length=300, examples=["안녕하세요. 자기소개를 한 문장으로 해주세요."])
+    prompt: str = Field(min_length=1, max_length=300, examples=["너는 누구야?"])
     system_prompt: str = Field(default="한국어로 간결하게 답변하세요.", max_length=400)
     history: list[Message] = Field(default_factory=list, max_length=20)
     max_tokens: int = Field(default=20, ge=1, le=20)
