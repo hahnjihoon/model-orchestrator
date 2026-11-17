@@ -20,10 +20,6 @@ EVALUATION_METRICS = (
 )
 
 
-class InputLimitExceededError(ValueError):
-    pass
-
-
 async def evaluate(client: httpx.AsyncClient, vllm_base_url: str, model_name: str, question: str, answer: str) -> dict:
     started_at = datetime.now(timezone(timedelta(hours=9)))
     started_counter = perf_counter()
@@ -31,28 +27,12 @@ async def evaluate(client: httpx.AsyncClient, vllm_base_url: str, model_name: st
         {"role": "system", "content": EVALUATION_SYSTEM_PROMPT},
         {"role": "user", "content": f"[사용자 질문]\n{question}\n\n[평가할 답변]\n{answer}"},
     ]
-    token_response = await client.post(
-        f"{vllm_base_url.removesuffix('/v1')}/tokenize",
-        json={
-            "model": model_name,
-            "messages": messages,
-            "chat_template_kwargs": {"enable_thinking": False},
-        },
-        timeout=httpx.Timeout(5.0, connect=5.0),
-    )
-    token_response.raise_for_status()
-    prompt_tokens = token_response.json()["count"]
-    if prompt_tokens > 700:
-        raise InputLimitExceededError(
-            f"전체 입력은 700토큰까지 가능합니다. 현재 {prompt_tokens}토큰입니다. 입력 내용을 줄여주세요."
-        )
-    print("모델 질문 전송 단계 :: ", {"model": model_name, "max_tokens": 20})
+    print("모델 질문 전송 단계 :: ", {"model": model_name})
     response = await client.post(
         f"{vllm_base_url}/chat/completions",
         json={
             "model": model_name,
             "messages": messages,
-            "max_tokens": 20,
             "temperature": 0,
             "stream": False,
             "structured_outputs": {"regex": r"\[(?:[0-4]|null)(?:,(?:[0-4]|null)){6}\]"},

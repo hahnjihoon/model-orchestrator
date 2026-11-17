@@ -24,11 +24,11 @@ class EvaluationRequest(BaseModel):
     }
 
     question: str = Field(
-        min_length=1, max_length=100, description="평가 기준이 되는 사용자 질문입니다.",
+        min_length=1, description="평가 기준이 되는 사용자 질문입니다.",
         json_schema_extra={"format": "multiline"},
     )
     answer: str = Field(
-        min_length=1, max_length=300, description="LLM이 평가할 답변입니다.",
+        min_length=1, description="LLM이 평가할 답변입니다.",
         json_schema_extra={"format": "multiline"},
     )
 
@@ -97,8 +97,6 @@ async def evaluate(request: Request):
             answer=evaluation_request.answer,
         )
         return EvaluationResponse(**result)
-    except evaluation_service.InputLimitExceededError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except httpx.ConnectTimeout as exc:
         raise HTTPException(status_code=503, detail="모델 서버 연결 시간이 초과되었습니다. 모델 주소와 네트워크 연결을 확인하세요.") from exc
     except httpx.ConnectError as exc:

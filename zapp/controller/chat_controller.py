@@ -13,7 +13,7 @@ router = APIRouter()
 
 class Message(BaseModel):
     role: Literal["system", "user", "assistant"]
-    content: str = Field(min_length=1, max_length=300)
+    content: str = Field(min_length=1)
 
 class ChatRequest(BaseModel):
     model_config = {
@@ -22,17 +22,17 @@ class ChatRequest(BaseModel):
                 "prompt": "너는 누구야?",
                 "system_prompt": "한국어로 간결하게 답변하세요.",
                 "history": [],
-                "max_tokens": 20,
+                "max_tokens": None,
                 "temperature": 0.7,
                 "enable_thinking": False,
             }
         }
     }
 
-    prompt: str = Field(min_length=1, max_length=300, examples=["너는 누구야?"])
-    system_prompt: str = Field(default="한국어로 간결하게 답변하세요.", max_length=400)
-    history: list[Message] = Field(default_factory=list, max_length=20)
-    max_tokens: int = Field(default=20, ge=1, le=20)
+    prompt: str = Field(min_length=1, examples=["너는 누구야?"])
+    system_prompt: str = Field(default="한국어로 간결하게 답변하세요.")
+    history: list[Message] = Field(default_factory=list)
+    max_tokens: int | None = Field(default=None, ge=1)
     temperature: float = Field(default=0.7, ge=0, le=2)
     enable_thinking: bool = Field(default=False, description="추론 과정 생성 여부입니다. 간단한 확인은 false로 사용하세요.")
 
@@ -62,8 +62,6 @@ async def chat(request: ChatRequest, http_request: Request):
             request_data=request.model_dump(),
         )
         return ChatResponse(**result)
-    except chat_service.InputLimitExceededError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except httpx.ConnectTimeout as exc:
         raise HTTPException(status_code=503, detail="모델 서버 연결 시간이 초과되었습니다. 모델 주소와 네트워크 연결을 확인하세요.") from exc
     except httpx.ConnectError as exc:
