@@ -61,7 +61,7 @@ class EvaluationTokenUsage(BaseModel):
 
 class EvaluationResponse(BaseModel):
     model: str
-    answer: str
+    answer: dict[str, dict[str, int | str | None]]
     reasoning: str | None = None
     finish_reason: str | None = None
     usage: EvaluationTokenUsage | None = None

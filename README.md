@@ -2,14 +2,28 @@
 
 ## 빠른 실행 — 설치가 끝난 PC
 
-프로젝트 폴더에서 아래 네 명령 중 필요한 것을 실행합니다.
+명령을 최초 한 번 등록한 뒤, 프로젝트 폴더에서 아래 네 명령 중 필요한 것을 실행합니다. 등록된 명령은 현재 프로젝트 폴더의 실행파일을 호출합니다.
+
+Windows PowerShell 최초 등록:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\install-commands.ps1
+```
+
+Linux 최초 등록:
+
+```bash
+bash scripts/linux/install-commands.sh
+```
+
+등록 후 새 터미널을 엽니다. Windows에서 `~/.local/bin`이 이미 PATH에 등록되어 있다면 현재 터미널에서도 바로 사용할 수 있습니다.
 
 | 작업 | Windows PowerShell | Linux |
 | --- | --- | --- |
-| Qwen 고사양 모델 실행 | `.\run1` | `./run1` |
-| Gemma 실행 | `.\run2` | `./run2` |
-| Qwen 경량 모델 실행 | `.\run3` | `./run3` |
-| Qwen 경량 모델 학습 | `.\train` | `./train` |
+| Qwen 고사양 모델 실행 | `run1` | `run1` |
+| Gemma 실행 | `run2` | `run2` |
+| Qwen 경량 모델 실행 | `run3` | `run3` |
+| Qwen 경량 모델 학습 | `train` | `train` |
 
 Linux에서 ZIP 복사 등으로 실행 권한이 사라진 경우 아래 명령으로 설정합니다. 권한 설정 없이 실행하려면 `bash ./run1` 형식으로 입력해도 됩니다.
 
@@ -23,7 +37,7 @@ Windows에서는 Docker Desktop, Linux에서는 Docker Engine과 Compose 플러�
 
 `train`은 `~/aiq-train/.venv/`의 Python으로 프로젝트의 `train.jsonl`을 학습하고, `~/aiq-train/output/eval-qlora`에 가중치를 저장합니다. 이후 `run3`을 다시 실행하면 이 가중치를 불러오며, 가중치가 없으면 기본 모델을 사용합니다.
 
-Windows 학습 옵션은 `.\train -Epochs 1`, Linux 학습 옵션은 `./train --epochs 1`처럼 전달합니다.
+Windows 학습 옵션은 `train -Epochs 1`, Linux 학습 옵션은 `train --epochs 1`처럼 전달합니다.
 
 Docker Desktop을 실행한 뒤 Windows PowerShell에서 입력합니다.
 
