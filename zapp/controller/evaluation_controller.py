@@ -17,19 +17,41 @@ class EvaluationRequest(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
-                "question": "비밀번호를 재설정하려면 어떻게 하나요?",
-                "answer": "로그인 화면에서 비밀번호 찾기를 선택해 재설정하세요.",
+                "question": "갤럭시 폰, 태블릿, 노트북, TV를 오가며 버즈 사용할 수 있어?",
+                "answer": (
+                    "**네, 갤럭시 폰·태블릿·갤럭시 북·TV를 오가며 같은 갤럭시 버즈를 연결해 쓸 수 있어요.** 다만 ‘자동으로 기기 전환’까지 원하시는지에 따라 확인 포인트가 달라요.\n"
+                    "\n"
+                    "🔍 **지금 질문에서 바로 정리되는 핵심**\n"
+                    "\n"
+                    "**기기마다 블루투스로 개별 연결**해서 쓰는 것은 가능해요. 폰/태블릿/노트북/TV 각각에서 버즈를 블루투스로 페어링해두고, 듣고 싶은 기기에서 연결을 바꿔 쓰는 방식입니다.\n"
+                    "**자동 전환**은 기기 조합(특히 TV/노트북 모델과 버즈 모델)에 따라 지원 여부가 달라서, 쓰시는 **버즈 모델명**과 **TV/갤럭시 북 모델명**을 확인해야 정확히 안내할 수 있어요.\n"
+                    "\n"
+                    "🧭 **구매·세팅 관점에서 중요한 선택 포인트 2가지**\n"
+                    "\n"
+                    "**TV에서의 사용 방식**: 삼성 TV는 블루투스 헤드셋 연결을 지원하는 모델이 많지만, 일부 모델/환경에서는 원하는 기능(예: 멀티포인트처럼 즉시 전환, 지연 체감 등)이 다를 수 있어요. TV 모델을 알면 “가능/불가”와 연결 경로를 정확히 좁혀드릴 수 있어요.\n"
+                    "**버즈를 어떤 방식으로 오가고 싶으신지**:\n"
+                    "“필요할 때 수동으로 기기 선택만 하면 된다”면 대부분 문제 없이 쓰는 편이고,\n"
+                    "“통화는 폰, 영상은 탭/북/TV로 자동으로 착착 넘어가게”가 목표라면 지원 조합 확인이 핵심이에요.\n"
+                    "\n"
+                    "먼저 사용 중이신(또는 구매 예정인) **버즈 모델명**과 **TV 모델명**(예: OLED/QLED 연식 또는 모델코드)을 알려주시면, 그 조합에서 ‘자동 전환’까지 가능한지 기준으로 딱 맞게 정리해 드릴게요."
+                ),
             }
         }
     }
 
     question: str = Field(
         min_length=1, description="평가 기준이 되는 사용자 질문입니다.",
-        json_schema_extra={"format": "multiline"},
+        json_schema_extra={
+            "format": "multiline",
+            "default": model_config["json_schema_extra"]["example"]["question"],
+        },
     )
     answer: str = Field(
         min_length=1, description="LLM이 평가할 답변입니다.",
-        json_schema_extra={"format": "multiline"},
+        json_schema_extra={
+            "format": "multiline",
+            "default": model_config["json_schema_extra"]["example"]["answer"],
+        },
     )
 
 class EvaluationTokenUsage(BaseModel):
