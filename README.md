@@ -2,11 +2,34 @@
 
 ## 빠른 실행 — 설치가 끝난 PC
 
+프로젝트 폴더에서 아래 네 명령 중 필요한 것을 실행합니다.
+
+| 작업 | Windows PowerShell | Linux |
+| --- | --- | --- |
+| Qwen 고사양 모델 실행 | `.\run1` | `./run1` |
+| Gemma 실행 | `.\run2` | `./run2` |
+| Qwen 경량 모델 실행 | `.\run3` | `./run3` |
+| Qwen 경량 모델 학습 | `.\train` | `./train` |
+
+Linux에서 ZIP 복사 등으로 실행 권한이 사라진 경우 아래 명령으로 설정합니다. 권한 설정 없이 실행하려면 `bash ./run1` 형식으로 입력해도 됩니다.
+
+```bash
+chmod +x run1 run2 run3 train
+```
+
+Windows는 `.cmd`를 통해 `scripts/windows/`의 PowerShell 실행기를 호출하고, 기존처럼 WSL Ubuntu에서 모델을 실행합니다. Linux는 확장자가 없는 진입점을 통해 `scripts/linux/`의 Bash 실행기를 호출하며 WSL 없이 현재 Linux에서 모델을 실행합니다. 두 환경 모두 모델 준비를 확인한 뒤 Docker API를 실행합니다.
+
+Windows에서는 Docker Desktop, Linux에서는 Docker Engine과 Compose 플러그인이 준비되어 있어야 합니다. 모델 파일과 vLLM 가상환경의 기본 위치는 각각 `~/aiq-llm/models/`, `~/aiq-llm/.venv/`이며 `.env`의 모델별 설정으로 변경할 수 있습니다. Linux용 Docker 호스트 연결 설정은 `scripts/linux/compose.yaml`에 있습니다.
+
+`train`은 `~/aiq-train/.venv/`의 Python으로 프로젝트의 `train.jsonl`을 학습하고, `~/aiq-train/output/eval-qlora`에 가중치를 저장합니다. 이후 `run3`을 다시 실행하면 이 가중치를 불러오며, 가중치가 없으면 기본 모델을 사용합니다.
+
+Windows 학습 옵션은 `.\train -Epochs 1`, Linux 학습 옵션은 `./train --epochs 1`처럼 전달합니다.
+
 Docker Desktop을 실행한 뒤 Windows PowerShell에서 입력합니다.
 
 ```powershell
 cd C:\workspace\model-orchestrator
-powershell -NoProfile -ExecutionPolicy Bypass -File .\run.ps1
+.\run1
 ```
 
 - Swagger: http://localhost:8011/docs
@@ -21,11 +44,11 @@ cd C:\workspace\model-orchestrator
 docker compose logs -f --tail=100 api
 ```
 
-`run.ps1`은 모델 준비를 확인한 뒤 `docker compose up -d --build`를 실행합니다. 코드 변경 후에도 같은 실행 명령을 사용합니다.
+`scripts/windows/run1.ps1`은 모델 준비를 확인한 뒤 `docker compose up -d --build`를 실행합니다. 코드 변경 후에도 같은 실행 명령을 사용합니다.
 
 ## Gemma 전용 실행
 
-Qwen은 `run.ps1`·`run.sh`, Gemma는 `run2.ps1`·`run2.sh`를 사용합니다. 설정 파일은 `.env` 하나이며, Qwen은 `QWEN_*`, Gemma는 `GEMMA_*` 항목을 읽습니다. `API_PORT`와 `CORS_ALLOW_ORIGINS`는 공통 설정입니다.
+Qwen은 `scripts/windows/run1.ps1`·`scripts/models/run1.sh`, Gemma는 `scripts/windows/run2.ps1`·`scripts/models/run2.sh`를 사용합니다. 설정 파일은 `.env` 하나이며, Qwen은 `QWEN_*`, Gemma는 `GEMMA_*` 항목을 읽습니다. `API_PORT`와 `CORS_ALLOW_ORIGINS`는 공통 설정입니다.
 두 실행 방식은 같은 Docker API와 8011 포트를 사용합니다. `/chat`, `/evaluate`, `/health`와 요청 형식은 같으며, 실행한 설정의 `MODEL_NAME`으로 모델을 호출합니다. 모델별 컨트롤러 폴더는 추가하지 않습니다.
 
 Gemma의 기본 모델은 Google 공식 4비트 QAT 체크포인트인 [`google/gemma-4-31B-it-qat-w4a16-ct`](https://huggingface.co/google/gemma-4-31B-it-qat-w4a16-ct)입니다. 16GB VRAM에서 원본 BF16 대신 이 양자화 모델과 CPU 오프로딩을 사용하도록 설정했습니다. 실제 사용 가능 메모리와 vLLM 동작에 따라 실행 여부가 달라집니다.
@@ -40,11 +63,11 @@ Gemma의 기본 모델은 Google 공식 4비트 QAT 체크포인트인 [`google/
 
 ```powershell
 cd C:\workspace\model-orchestrator
-powershell -NoProfile -ExecutionPolicy Bypass -File .\run2.ps1
+.\run2
 ```
 
 - `.env.example` 하나를 복사해 `.env`를 만듭니다. 두 모델의 경로·모델 별칭·Python 경로·모델 포트·메모리 설정·준비 대기 시간은 같은 파일에서 각각 지정합니다.
-- `run2.ps1`은 Qwen을 먼저 실행하지 않고 Gemma만 준비한 뒤, 같은 API 컨테이너에 `GEMMA_MODEL_NAME`을 적용합니다. `run.ps1`은 `QWEN_MODEL_NAME`을 적용합니다.
+- `scripts/windows/run2.ps1`은 Qwen을 먼저 실행하지 않고 Gemma만 준비한 뒤, 같은 API 컨테이너에 `GEMMA_MODEL_NAME`을 적용합니다. `scripts/windows/run1.ps1`은 `QWEN_MODEL_NAME`을 적용합니다.
 - 다른 모델이 8010 포트를 사용 중이면 자동 종료하지 않고 중단합니다. 모델을 바꿀 때는 Windows PowerShell에서 `wsl --terminate Ubuntu-24.04`로 기존 모델을 종료한 뒤 원하는 실행기를 사용합니다. 자세한 순서는 아래 모델 전환 절을 참고합니다.
 - 모델별 자동 전환과 프론트 토글은 아직 추가하지 않았습니다.
 - Gemma 장치 설정은 `scripts/configure_runtime2.py`에서 계산합니다. 언어 모델만 사용하므로 Gemma의 비전·오디오 가중치는 메모리 계산에서 제외합니다.
@@ -62,30 +85,30 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\run2.ps1
   → Qwen 모델 추론
 ```
 
-- `run.ps1`이 WSL 모델 서버를 확인하고, 꺼져 있으면 `run.sh`로 vLLM CLI를 실행합니다.
+- `scripts/windows/run1.ps1`이 WSL 모델 서버를 확인하고, 꺼져 있으면 `scripts/models/run1.sh`로 vLLM CLI를 실행합니다.
 - 프로젝트 API는 Windows에서 Docker로 실행합니다.
 - 모델 준비를 확인한 뒤 Docker 프로젝트 API를 실행합니다.
-- `run.ps1`은 Ubuntu IP의 `/v1/models`로 모델 준비를 확인합니다.
+- `scripts/windows/run1.ps1`은 Ubuntu IP의 `/v1/models`로 모델 준비를 확인합니다.
 - Docker API는 `compose.yaml`에 설정된 `http://host.docker.internal:8010/v1`로 모델을 호출합니다.
 - vLLM은 프로젝트 없이도 CLI로 실행할 수 있습니다. 여기서는 프로젝트 실행기가 그 CLI 호출까지 자동으로 처리합니다.
 - vLLM은 Python 패키지이며, 패키지 안에 FastAPI·Uvicorn 기반 모델 서버 코드가 포함돼 있습니다.
 - Docker Desktop 자체가 WSL 2 백엔드를 사용할 수 있지만, Ubuntu의 모델 프로세스와 프로젝트 컨테이너는 별도로 실행합니다.
 
-### `run.ps1`과 `run.sh`의 역할
+### `scripts/windows/run1.ps1`과 `scripts/models/run1.sh`의 역할
 
 | 파일 | 실행 환경 | 역할 |
 | --- | --- | --- |
-| `run.ps1` | Windows PowerShell | Docker 확인, WSL 모델 준비 확인, 필요 시 `run.sh` 호출, Docker API 빌드·실행 |
-| `run.sh` | WSL Ubuntu의 Bash | Python 환경 설정, GPU·CPU 메모리 설정 계산, vLLM 모델 서버 실행 |
+| `scripts/windows/run1.ps1` | Windows PowerShell | Docker 확인, WSL 모델 준비 확인, 필요 시 `scripts/models/run1.sh` 호출, Docker API 빌드·실행 |
+| `scripts/models/run1.sh` | WSL Ubuntu의 Bash | Python 환경 설정, GPU·CPU 메모리 설정 계산, vLLM 모델 서버 실행 |
 
-전체 실행은 `run.ps1` 하나로 처리합니다. `run.sh`는 내부에서 호출됩니다. 모델 준비 대기 중에는 콘솔 출력이 한동안 없을 수 있으며, 진행 상태는 `runtime/vllm.log`에서 확인합니다. 기본 준비 대기 한도는 900초입니다.
+전체 실행은 `scripts/windows/run1.ps1` 하나로 처리합니다. `scripts/models/run1.sh`는 내부에서 호출됩니다. 모델 준비 대기 중에는 콘솔 출력이 한동안 없을 수 있으며, 진행 상태는 `runtime/vllm.log`에서 확인합니다. 기본 준비 대기 한도는 900초입니다.
 
 ### 모델 또는 API만 개별 실행
 
 모델이 꺼진 상태에서 vLLM만 실행하려면 Windows PowerShell에서 입력합니다. 이 명령은 모델 프로세스가 종료될 때까지 실행 상태를 유지합니다.
 
 ```powershell
-wsl -d Ubuntu-24.04 -- bash /mnt/c/workspace/model-orchestrator/run.sh
+wsl -d Ubuntu-24.04 -- bash /mnt/c/workspace/model-orchestrator/scripts/models/run1.sh
 ```
 
 vLLM이 이미 준비된 상태에서 Docker API만 빌드·실행하려면 별도 PowerShell에서 입력합니다.
@@ -103,7 +126,12 @@ docker compose up -d --build api
 model-orchestrator/
 ├─ runtime/
 ├─ scripts/
-│  └─ configure_runtime.py
+│  ├─ windows/              # Windows → WSL 실행기
+│  ├─ linux/                # Linux 직접 실행기와 Docker 연결 설정
+│  ├─ models/               # 모델별 vLLM 실행기
+│  ├─ configure_runtime.py
+│  ├─ configure_runtime2.py
+│  └─ configure_runtime3.py
 ├─ zapp/
 │  ├─ controller/
 │  │  ├─ chat_controller.py
@@ -118,8 +146,12 @@ model-orchestrator/
 │     ├─ health_service.py
 │     └─ prompts/eval_system_deploy.txt
 ├─ main.py
-├─ run.ps1
-├─ run.sh
+├─ run1 / run1.cmd
+├─ run2 / run2.cmd
+├─ run3 / run3.cmd
+├─ train / train.cmd
+├─ train.py
+├─ train.jsonl
 ├─ compose.yaml
 └─ Dockerfile
 ```
@@ -279,7 +311,7 @@ VS Code를 사용한다면 `C:\workspace\model-orchestrator` 폴더를 열고 �
 ### 8. 자동 실행 준비 — 별도 CLI 입력 없음
 
 WSL·vLLM·모델 다운로드와 Docker Desktop 설치까지 완료되면 9번으로 진행합니다.
-모델 서버 실행과 프로젝트 이미지 빌드는 `run.ps1`이 처리합니다.
+모델 서버 실행과 프로젝트 이미지 빌드는 `scripts/windows/run1.ps1`이 처리합니다.
 수동 vLLM 실행 명령이나 사전 `docker compose build`는 초기 실행 순서에 포함하지 않습니다.
 
 ### 9. 모델 서버와 프로젝트 API를 한 번에 실행 — Windows PowerShell
@@ -288,14 +320,14 @@ Docker Desktop이 실행 중인 상태에서 입력합니다.
 
 ```powershell
 cd C:\workspace\model-orchestrator
-powershell -NoProfile -ExecutionPolicy Bypass -File .\run.ps1
+.\run1
 ```
 
 - Dockerfile이 프로젝트의 FastAPI·Uvicorn·HTTPX를 컨테이너 안에 설치합니다.
-- `run.ps1`이 Docker Desktop과 Compose 설정, API 포트를 확인합니다.
+- `scripts/windows/run1.ps1`이 Docker Desktop과 Compose 설정, API 포트를 확인합니다.
 - WSL Ubuntu를 켜고 모델 서버를 확인합니다. 이미 준비된 모델은 재사용합니다.
-- 모델이 꺼져 있으면 숨겨진 WSL 프로세스에서 프로젝트의 `run.sh`를 실행합니다.
-- `run.sh`가 GPU 여유 메모리와 CPU 오프로딩 용량을 계산하고 vLLM 내장 FastAPI 서버를 8010으로 실행합니다.
+- 모델이 꺼져 있으면 숨겨진 WSL 프로세스에서 프로젝트의 `scripts/models/run1.sh`를 실행합니다.
+- `scripts/models/run1.sh`가 GPU 여유 메모리와 CPU 오프로딩 용량을 계산하고 vLLM 내장 FastAPI 서버를 8010으로 실행합니다.
 - 모델의 `/v1/models` 응답에서 설정된 모델이 준비됐는지 확인한 뒤 Docker API를 실행합니다.
 - `docker compose up -d --build`로 프로젝트 이미지를 빌드하고 백그라운드에서 실행합니다. 변경되지 않은 빌드 단계는 캐시를 사용합니다.
 - 컨테이너는 `http://host.docker.internal:8010/v1`로 모델 서버를 호출합니다. 포트는 `.env`에서 선택한 모델의 `QWEN_VLLM_PORT` 또는 `GEMMA_VLLM_PORT`를 따릅니다.
@@ -308,7 +340,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\run.ps1
 기존 모델의 메모리·문맥 설정을 바꾸려면 해당 모델을 종료하고 실행기를 다시 실행합니다.
 
 기존 서버를 자동 종료하지 않습니다. 구버전 WSL 프로젝트 API가 8011을 쓰고 있거나, 모델이 `127.0.0.1`에만 열려 있으면 원인을 표시하고 중단합니다.
-기존 모델은 `run.ps1`의 준비 확인에 사용하는 Ubuntu IP와 Docker API의 호출 경로 모두에서 접근 가능해야 합니다.
+기존 모델은 `scripts/windows/run1.ps1`의 준비 확인에 사용하는 Ubuntu IP와 Docker API의 호출 경로 모두에서 접근 가능해야 합니다.
 
 ### 10. 현재 PC의 브라우저에서 Swagger 접속
 
@@ -542,7 +574,7 @@ Get-Content -LiteralPath .\runtime\model-launcher-error.log -Encoding UTF8 -Tail
 
 ## 모델 전환
 
-실행기는 다른 모델을 자동 종료하거나 교체하지 않습니다. Gemma가 켜진 상태에서 `run.ps1`을 실행하거나, Qwen이 켜진 상태에서 `run2.ps1`을 실행하면 다른 모델이 포트를 사용 중이라는 오류로 중단됩니다.
+실행기는 다른 모델을 자동 종료하거나 교체하지 않습니다. Gemma가 켜진 상태에서 `scripts/windows/run1.ps1`을 실행하거나, Qwen이 켜진 상태에서 `scripts/windows/run2.ps1`을 실행하면 다른 모델이 포트를 사용 중이라는 오류로 중단됩니다.
 
 모델을 바꿀 때는 Windows PowerShell에서 먼저 현재 모델을 종료합니다.
 
@@ -558,17 +590,17 @@ Qwen 실행:
 
 ```powershell
 cd C:\workspace\model-orchestrator
-powershell -NoProfile -ExecutionPolicy Bypass -File .\run.ps1
+.\run1
 ```
 
 Gemma 실행:
 
 ```powershell
 cd C:\workspace\model-orchestrator
-powershell -NoProfile -ExecutionPolicy Bypass -File .\run2.ps1
+.\run2
 ```
 
-선택한 실행기가 Ubuntu와 해당 모델을 시작하고 준비 완료를 확인한 뒤, 같은 Docker API 컨테이너에 선택한 모델 설정을 반영합니다. `.env`를 바꿀 필요 없이 `run.ps1`은 `QWEN_*`, `run2.ps1`은 `GEMMA_*` 설정을 읽습니다. API 포트를 그대로 사용하면 접속 주소와 해당 포트에 연결된 Cloudflare 터널 주소도 그대로 사용할 수 있습니다. 모델을 다시 로딩하는 동안에는 질문을 처리할 수 없습니다.
+선택한 실행기가 Ubuntu와 해당 모델을 시작하고 준비 완료를 확인한 뒤, 같은 Docker API 컨테이너에 선택한 모델 설정을 반영합니다. `.env`를 바꿀 필요 없이 `scripts/windows/run1.ps1`은 `QWEN_*`, `scripts/windows/run2.ps1`은 `GEMMA_*` 설정을 읽습니다. API 포트를 그대로 사용하면 접속 주소와 해당 포트에 연결된 Cloudflare 터널 주소도 그대로 사용할 수 있습니다. 모델을 다시 로딩하는 동안에는 질문을 처리할 수 없습니다.
 
 ## 종료
 
@@ -595,31 +627,31 @@ wsl --terminate Ubuntu-24.04
 ```powershell
 cd C:\workspace\model-orchestrator
 git pull --ff-only
-powershell -NoProfile -ExecutionPolicy Bypass -File .\run.ps1
+.\run1
 ```
 
 프로젝트만 업데이트할 때 모델 서버는 별도로 계속 실행할 수 있습니다.
-`run.ps1`이 모델 준비 확인과 프로젝트 이미지 빌드·실행을 함께 처리합니다. 이미 준비된 모델 서버는 재사용합니다.
+`scripts/windows/run1.ps1`이 모델 준비 확인과 프로젝트 이미지 빌드·실행을 함께 처리합니다. 이미 준비된 모델 서버는 재사용합니다.
 
 ## 설정 파일
 
 - `.env`: 공통 API 설정과 `QWEN_*`·`GEMMA_*` 모델별 설정을 함께 보관하는 단일 파일.
 - `.env.example`: 두 모델의 전체 설정을 포함하며, 새 PC에서 `.env`를 만들 때 사용하는 단일 예시.
 - `Dockerfile`, `compose.yaml`: 프로젝트 API 컨테이너 설정.
-- `run.ps1`: WSL 모델 서버 시작·준비 확인 후 Docker 프로젝트 API 실행.
-- `run.sh`: 모델 전용 실행기. vLLM을 WSL에서 실행하며 프로젝트 API는 실행하지 않음.
-- `scripts/configure_runtime.py`: `run.sh`에서 GPU 여유 메모리와 CPU 오프로딩 용량 계산.
+- `scripts/windows/run1.ps1`: WSL 모델 서버 시작·준비 확인 후 Docker 프로젝트 API 실행.
+- `scripts/models/run1.sh`: 모델 전용 실행기. vLLM을 WSL에서 실행하며 프로젝트 API는 실행하지 않음.
+- `scripts/configure_runtime.py`: `scripts/models/run1.sh`에서 GPU 여유 메모리와 CPU 오프로딩 용량 계산.
 - `runtime/device.json`: 자동 설정 실행기의 장치 선택 결과.
 
 주요 `.env` 설정의 기본값은 다음과 같습니다.
 
 | 설정 | 기본값 | 역할 |
 | --- | --- | --- |
-| `QWEN_MODEL_PATH` | `/home/ais_j/aiq-llm/models/qwen3.8-27b-fp8` | Qwen 모델 파일 경로 |
-| `GEMMA_MODEL_PATH` | `/home/ais_j/aiq-llm/models/gemma-4-31b-it-qat-w4a16-ct` | Gemma 모델 파일 경로 |
+| `QWEN_MODEL_PATH` | `~/aiq-llm/models/qwen3.8-27b-fp8` | Qwen 모델 파일 경로 |
+| `GEMMA_MODEL_PATH` | `~/aiq-llm/models/gemma-4-31b-it-qat-w4a16-ct` | Gemma 모델 파일 경로 |
 | `QWEN_MODEL_NAME` | `qwen3.8-27b-fp8` | Qwen 모델 별칭 |
 | `GEMMA_MODEL_NAME` | `gemma-4-31b-it-qat-w4a16-ct` | Gemma 모델 별칭 |
-| `QWEN_VLLM_PYTHON` / `GEMMA_VLLM_PYTHON` | `/home/ais_j/aiq-llm/.venv/bin/python` | 각 모델을 실행할 Python 경로 |
+| `QWEN_VLLM_PYTHON` / `GEMMA_VLLM_PYTHON` | `~/aiq-llm/.venv/bin/python` | 각 모델을 실행할 Python 경로 |
 | `API_PORT` | `8011` | Windows에 공개할 프로젝트 API 포트 |
 | `QWEN_VLLM_PORT` / `GEMMA_VLLM_PORT` | `8010` | 각 WSL 모델 서버 포트 |
 | `CORS_ALLOW_ORIGINS` | `*` | 허용할 프론트 출처. 여러 개는 쉼표로 구분 |
@@ -637,7 +669,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\run.ps1
 | 파일 | 내용 |
 | --- | --- |
 | `device.json` | 선택된 GPU·CPU 구성과 메모리 설정 정보 |
-| `device.env` | `run.sh`가 읽어 모델 실행에 적용하는 메모리 환경변수 |
+| `device.env` | `scripts/models/run1.sh`가 읽어 모델 실행에 적용하는 메모리 환경변수 |
 | `vllm.log` | vLLM 모델 서버의 실행·로딩·추론 로그 |
 | `vllm.pid` | 실행한 모델 서버의 프로세스 번호 |
 | `model-launcher.log` | Windows 실행기가 호출한 WSL 모델 실행 과정의 일반 출력 |

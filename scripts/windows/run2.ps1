@@ -1,8 +1,9 @@
 $ErrorActionPreference = 'Stop'
-Set-Location -LiteralPath $PSScriptRoot
+$projectDirectory = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+Set-Location -LiteralPath $projectDirectory
 
 $startupSettings = @{
-    MODEL_NAME = 'qwen3-0.6b'
+    MODEL_NAME = 'gemma-4-31b-it-qat-w4a16-ct'
     VLLM_PORT = '8010'
     API_PORT = '8011'
     MODEL_START_TIMEOUT_SECONDS = '900'
@@ -14,8 +15,8 @@ if (Test-Path -LiteralPath '.env') {
         $settingPair = $settingLine -split '=', 2
         if ($settingPair.Count -eq 2) {
             $settingName = $settingPair[0].Trim()
-            if ($settingName.StartsWith('QWEN_SMALL_')) {
-                $settingName = $settingName.Substring(11)
+            if ($settingName.StartsWith('GEMMA_')) {
+                $settingName = $settingName.Substring(6)
             } elseif ($settingName -ne 'API_PORT') {
                 continue
             }
@@ -57,10 +58,10 @@ if ($modelAddresses.Count -eq 0) { throw 'Ubuntu IPv4 address was not found.' }
 $modelAddress = $modelAddresses[0]
 if (-not $modelAddress) { throw 'Ubuntu IPv4 address was not found.' }
 
-$projectPath = $PSScriptRoot.Replace('\', '/')
+$projectPath = $projectDirectory.Replace('\', '/')
 if ($projectPath -notmatch '^[A-Za-z]:/') { throw 'The project must be on a local Windows drive.' }
 $linuxPath = '/mnt/' + $projectPath.Substring(0, 1).ToLowerInvariant() + $projectPath.Substring(2)
-$runtimeDirectory = Join-Path $PSScriptRoot 'runtime'
+$runtimeDirectory = Join-Path $projectDirectory 'runtime'
 New-Item -ItemType Directory -Path $runtimeDirectory -Force | Out-Null
 $modelUrl = "http://${modelAddress}:${modelPort}/v1/models"
 $modelLauncher = $null
@@ -121,15 +122,15 @@ try {
                     throw "The old model is reachable only through Windows localhost. Stop that model first, then rerun this script to bind it to the Ubuntu IP."
                 }
                 Write-Output "Starting the WSL model server on port $modelPort."
-                $modelLauncher = Start-Process -FilePath 'wsl.exe' -WindowStyle Hidden -WorkingDirectory $PSScriptRoot -ArgumentList @('-d', 'Ubuntu-24.04', '--', 'bash', ('"' + $linuxPath + '/run3.sh"')) -RedirectStandardOutput (Join-Path $runtimeDirectory 'model3-launcher.log') -RedirectStandardError (Join-Path $runtimeDirectory 'model3-launcher-error.log') -PassThru
+                $modelLauncher = Start-Process -FilePath 'wsl.exe' -WindowStyle Hidden -WorkingDirectory $projectDirectory -ArgumentList @('-d', 'Ubuntu-24.04', '--', 'bash', ('"' + $linuxPath + '/scripts/models/run2.sh"')) -RedirectStandardOutput (Join-Path $runtimeDirectory 'model2-launcher.log') -RedirectStandardError (Join-Path $runtimeDirectory 'model2-launcher-error.log') -PassThru
             }
         }
         if ($null -ne $modelLauncher -and $modelLauncher.HasExited) {
-            throw 'The WSL model launcher exited. Check runtime/model3-launcher-error.log and runtime/vllm3.log.'
+            throw 'The WSL model launcher exited. Check runtime/model2-launcher-error.log and runtime/vllm2.log.'
         }
         Start-Sleep -Seconds 2
     }
-    if (-not $modelReady) { throw "Model readiness timed out after $startupTimeout seconds. Check runtime/vllm3.log." }
+    if (-not $modelReady) { throw "Model readiness timed out after $startupTimeout seconds. Check runtime/vllm2.log." }
 } finally {
     $httpClient.Dispose()
 }

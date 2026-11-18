@@ -1,8 +1,9 @@
 $ErrorActionPreference = 'Stop'
-Set-Location -LiteralPath $PSScriptRoot
+$projectDirectory = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+Set-Location -LiteralPath $projectDirectory
 
 $startupSettings = @{
-    MODEL_NAME = 'qwen3.8-27b-fp8'
+    MODEL_NAME = 'qwen3-0.6b'
     VLLM_PORT = '8010'
     API_PORT = '8011'
     MODEL_START_TIMEOUT_SECONDS = '900'
@@ -14,8 +15,8 @@ if (Test-Path -LiteralPath '.env') {
         $settingPair = $settingLine -split '=', 2
         if ($settingPair.Count -eq 2) {
             $settingName = $settingPair[0].Trim()
-            if ($settingName.StartsWith('QWEN_')) {
-                $settingName = $settingName.Substring(5)
+            if ($settingName.StartsWith('QWEN_SMALL_')) {
+                $settingName = $settingName.Substring(11)
             } elseif ($settingName -ne 'API_PORT') {
                 continue
             }
@@ -50,6 +51,28 @@ try {
     $apiProbe.Dispose()
 }
 
+$wslHomeOutput = & wsl.exe -d Ubuntu-24.04 -- bash -lc 'echo ~'
+if ($LASTEXITCODE -ne 0 -or -not $wslHomeOutput) { throw 'Could not read the Ubuntu home directory.' }
+$wslHome = ($wslHomeOutput -join '').Trim()
+$adapterPath = "$wslHome/aiq-train/output/eval-qlora"
+$hasAdapterWeights = $false
+& wsl.exe -d Ubuntu-24.04 -- test -f "$adapterPath/adapter_model.safetensors"
+if ($LASTEXITCODE -eq 0) { $hasAdapterWeights = $true }
+if (-not $hasAdapterWeights) {
+    & wsl.exe -d Ubuntu-24.04 -- test -f "$adapterPath/adapter_model.bin"
+    if ($LASTEXITCODE -eq 0) { $hasAdapterWeights = $true }
+}
+$launchMode = 'base'
+if ($hasAdapterWeights) {
+    & wsl.exe -d Ubuntu-24.04 -- test -f "$adapterPath/adapter_config.json"
+    if ($LASTEXITCODE -ne 0) { throw "Adapter weights exist but adapter_config.json is missing: $adapterPath" }
+    $startupSettings.MODEL_NAME = $startupSettings.MODEL_NAME + '-trained'
+    $launchMode = 'trained'
+    Write-Output "Using trained model weights: $adapterPath"
+} else {
+    Write-Output 'Using the original model. No trained adapter weights were found.'
+}
+
 $wslAddresses = & wsl.exe -d Ubuntu-24.04 -- hostname -I
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $modelAddresses = @(($wslAddresses -join ' ').Trim() -split '\s+' | Where-Object { $_ -match '^\d{1,3}(\.\d{1,3}){3}$' })
@@ -57,10 +80,10 @@ if ($modelAddresses.Count -eq 0) { throw 'Ubuntu IPv4 address was not found.' }
 $modelAddress = $modelAddresses[0]
 if (-not $modelAddress) { throw 'Ubuntu IPv4 address was not found.' }
 
-$projectPath = $PSScriptRoot.Replace('\', '/')
+$projectPath = $projectDirectory.Replace('\', '/')
 if ($projectPath -notmatch '^[A-Za-z]:/') { throw 'The project must be on a local Windows drive.' }
 $linuxPath = '/mnt/' + $projectPath.Substring(0, 1).ToLowerInvariant() + $projectPath.Substring(2)
-$runtimeDirectory = Join-Path $PSScriptRoot 'runtime'
+$runtimeDirectory = Join-Path $projectDirectory 'runtime'
 New-Item -ItemType Directory -Path $runtimeDirectory -Force | Out-Null
 $modelUrl = "http://${modelAddress}:${modelPort}/v1/models"
 $modelLauncher = $null
@@ -121,15 +144,15 @@ try {
                     throw "The old model is reachable only through Windows localhost. Stop that model first, then rerun this script to bind it to the Ubuntu IP."
                 }
                 Write-Output "Starting the WSL model server on port $modelPort."
-                $modelLauncher = Start-Process -FilePath 'wsl.exe' -WindowStyle Hidden -WorkingDirectory $PSScriptRoot -ArgumentList @('-d', 'Ubuntu-24.04', '--', 'bash', ('"' + $linuxPath + '/run.sh"')) -RedirectStandardOutput (Join-Path $runtimeDirectory 'model-launcher.log') -RedirectStandardError (Join-Path $runtimeDirectory 'model-launcher-error.log') -PassThru
+                $modelLauncher = Start-Process -FilePath 'wsl.exe' -WindowStyle Hidden -WorkingDirectory $projectDirectory -ArgumentList @('-d', 'Ubuntu-24.04', '--', 'bash', ('"' + $linuxPath + '/scripts/models/run3.sh"'), $launchMode) -RedirectStandardOutput (Join-Path $runtimeDirectory 'model3-launcher.log') -RedirectStandardError (Join-Path $runtimeDirectory 'model3-launcher-error.log') -PassThru
             }
         }
         if ($null -ne $modelLauncher -and $modelLauncher.HasExited) {
-            throw 'The WSL model launcher exited. Check runtime/model-launcher-error.log and runtime/vllm.log.'
+            throw 'The WSL model launcher exited. Check runtime/model3-launcher-error.log and runtime/vllm3.log.'
         }
         Start-Sleep -Seconds 2
     }
-    if (-not $modelReady) { throw "Model readiness timed out after $startupTimeout seconds. Check runtime/vllm.log." }
+    if (-not $modelReady) { throw "Model readiness timed out after $startupTimeout seconds. Check runtime/vllm3.log." }
 } finally {
     $httpClient.Dispose()
 }

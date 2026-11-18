@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.."
 if [[ -f .env ]]; then
     set -a
     source <(sed 's/\r$//' .env)
@@ -21,12 +21,33 @@ export MAX_MODEL_LEN="${QWEN_SMALL_MAX_MODEL_LEN:-2048}"
 export GPU_MEMORY_UTILIZATION="${QWEN_SMALL_GPU_MEMORY_UTILIZATION:-0.50}"
 VLLM_PYTHON="${QWEN_SMALL_VLLM_PYTHON:-$HOME/aiq-llm/.venv/bin/python}"
 export -n VLLM_PYTHON
+base_model_name="$MODEL_NAME"
+adapter_path="$HOME/aiq-train/output/eval-qlora"
+launch_mode="${1:-auto}"
+lora_args=()
 if [[ ! -x "$VLLM_PYTHON" ]]; then
     printf 'Qwen3-0.6B Python executable was not found: %s\n' "$VLLM_PYTHON" >&2
     exit 1
 fi
 if [[ ! -f "$MODEL_PATH/config.json" ]]; then
     printf 'Qwen3-0.6B model files were not found: %s. Complete the model download first.\n' "$MODEL_PATH" >&2
+    exit 1
+fi
+if [[ "$launch_mode" == auto ]]; then
+    launch_mode=base
+    if [[ -f "$adapter_path/adapter_model.safetensors" || -f "$adapter_path/adapter_model.bin" ]]; then
+        launch_mode=trained
+    fi
+fi
+if [[ "$launch_mode" == trained ]]; then
+    if [[ ! -f "$adapter_path/adapter_config.json" || ( ! -f "$adapter_path/adapter_model.safetensors" && ! -f "$adapter_path/adapter_model.bin" ) ]]; then
+        printf 'Trained adapter files are incomplete: %s\n' "$adapter_path" >&2
+        exit 1
+    fi
+    export MODEL_NAME="${base_model_name}-trained"
+    lora_args=(--enable-lora --max-lora-rank 16 --lora-modules "$MODEL_NAME=$adapter_path")
+elif [[ "$launch_mode" != base ]]; then
+    printf 'Invalid model launch mode: %s\n' "$launch_mode" >&2
     exit 1
 fi
 mkdir -p runtime
@@ -45,7 +66,8 @@ PY
 source runtime/device.env
 setsid "$VLLM_PYTHON" -m vllm.entrypoints.openai.api_server \
     --model "${MODEL_PATH:?MODEL_PATH is required}" \
-    --served-model-name "${MODEL_NAME:-qwen3-0.6b}" \
+    --served-model-name "$base_model_name" \
+    "${lora_args[@]}" \
     --host 0.0.0.0 \
     --port "${VLLM_PORT:-8010}" \
     --language-model-only \

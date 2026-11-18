@@ -2,3 +2,5 @@
 .venv/
 __pycache__/
 runtime/
+train.jsonl.tmp
+trained_model/checkpoint-*/
