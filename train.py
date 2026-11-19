@@ -145,7 +145,7 @@ checkpoint_path = (
 config = SFTConfig(
     output_dir=str(checkpoint_path), num_train_epochs=args.epochs,
     per_device_train_batch_size=1, per_device_eval_batch_size=1, gradient_accumulation_steps=8,
-    learning_rate=1e-4, lr_scheduler_type="cosine", warmup_ratio=0.03,
+    learning_rate=1e-4, lr_scheduler_type="cosine", warmup_steps=0.03,
     bf16=compute_dtype == torch.bfloat16, fp16=compute_dtype == torch.float16,
     activation_checkpointing=True, optim="adamw_torch", logging_steps=10,
     eval_strategy="epoch", save_strategy="steps", save_steps=100, save_total_limit=2,
